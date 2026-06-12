@@ -1,0 +1,188 @@
+import type { Building, Room, Lease, Bill, WorkOrder, Staff } from '@/types'
+
+export const mockBuildings: Building[] = [
+  { id: 'b1', name: '阳光公寓A栋', address: '朝阳区建国路88号', totalRooms: 48 },
+  { id: 'b2', name: '阳光公寓B栋', address: '朝阳区建国路90号', totalRooms: 36 },
+  { id: 'b3', name: '星河花园1号楼', address: '海淀区中关村大街66号', totalRooms: 24 },
+]
+
+export const mockStaff: Staff[] = [
+  { id: 's1', name: '王建国', role: 'manager', phone: '13800001111' },
+  { id: 's2', name: '李小红', role: 'butler', phone: '13800002222' },
+  { id: 's3', name: '张师傅', role: 'maintenance', phone: '13800003333' },
+  { id: 's4', name: '刘师傅', role: 'maintenance', phone: '13800004444' },
+  { id: 's5', name: '陈财务', role: 'finance', phone: '13800005555' },
+]
+
+export const mockRooms: Room[] = [
+  { id: 'r1', buildingId: 'b1', roomNumber: '101', floor: '1F', area: 35, status: 'occupied', monthlyRent: 3200 },
+  { id: 'r2', buildingId: 'b1', roomNumber: '102', floor: '1F', area: 42, status: 'vacant', monthlyRent: 3600 },
+  { id: 'r3', buildingId: 'b1', roomNumber: '201', floor: '2F', area: 35, status: 'expiring', monthlyRent: 3200 },
+  { id: 'r4', buildingId: 'b1', roomNumber: '202', floor: '2F', area: 50, status: 'arrears', monthlyRent: 4200 },
+  { id: 'r5', buildingId: 'b1', roomNumber: '301', floor: '3F', area: 38, status: 'occupied', monthlyRent: 3400 },
+  { id: 'r6', buildingId: 'b1', roomNumber: '302', floor: '3F', area: 42, status: 'configuring', monthlyRent: 3600 },
+  { id: 'r7', buildingId: 'b1', roomNumber: '401', floor: '4F', area: 35, status: 'vacant', monthlyRent: 3200 },
+  { id: 'r8', buildingId: 'b1', roomNumber: '402', floor: '4F', area: 50, status: 'occupied', monthlyRent: 4200 },
+  { id: 'r9', buildingId: 'b2', roomNumber: '101', floor: '1F', area: 38, status: 'occupied', monthlyRent: 3400 },
+  { id: 'r10', buildingId: 'b2', roomNumber: '102', floor: '1F', area: 35, status: 'expiring', monthlyRent: 3200 },
+  { id: 'r11', buildingId: 'b2', roomNumber: '201', floor: '2F', area: 42, status: 'occupied', monthlyRent: 3600 },
+  { id: 'r12', buildingId: 'b2', roomNumber: '202', floor: '2F', area: 38, status: 'vacant', monthlyRent: 3400 },
+  { id: 'r13', buildingId: 'b2', roomNumber: '301', floor: '3F', area: 50, status: 'arrears', monthlyRent: 4200 },
+  { id: 'r14', buildingId: 'b2', roomNumber: '302', floor: '3F', area: 35, status: 'occupied', monthlyRent: 3200 },
+  { id: 'r15', buildingId: 'b3', roomNumber: '101', floor: '1F', area: 45, status: 'occupied', monthlyRent: 3800 },
+  { id: 'r16', buildingId: 'b3', roomNumber: '102', floor: '1F', area: 38, status: 'configuring', monthlyRent: 3400 },
+  { id: 'r17', buildingId: 'b3', roomNumber: '201', floor: '2F', area: 45, status: 'expiring', monthlyRent: 3800 },
+  { id: 'r18', buildingId: 'b3', roomNumber: '202', floor: '2F', area: 38, status: 'occupied', monthlyRent: 3400 },
+]
+
+export const mockLeases: Lease[] = [
+  {
+    id: 'l1', roomId: 'r1', tenantName: '赵明', tenantIdCard: '110101199001011234',
+    tenantPhone: '13900001111', startDate: '2025-03-01', endDate: '2026-02-28',
+    deposit: 3200, monthlyRent: 3200, paymentMethod: '月付', status: 'active',
+    coTenants: [{ id: 'ct1', name: '钱丽', idCard: '110101199202022345', phone: '13900002222', isPrimary: false }],
+    renewalRecords: [],
+  },
+  {
+    id: 'l2', roomId: 'r3', tenantName: '孙伟', tenantIdCard: '110102198805053456',
+    tenantPhone: '13900003333', startDate: '2025-04-01', endDate: '2026-03-31',
+    deposit: 3200, monthlyRent: 3200, paymentMethod: '季付', status: 'expiring',
+    coTenants: [],
+    renewalRecords: [{ id: 'rr1', leaseId: 'l2', oldEndDate: '2025-12-31', newEndDate: '2026-03-31', newRent: 3200, createdAt: '2025-12-15' }],
+  },
+  {
+    id: 'l3', roomId: 'r4', tenantName: '周芳', tenantIdCard: '110103199107074567',
+    tenantPhone: '13900004444', startDate: '2025-01-01', endDate: '2025-12-31',
+    deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
+    coTenants: [{ id: 'ct2', name: '吴强', idCard: '110103198909095678', phone: '13900005555', isPrimary: true }],
+    renewalRecords: [],
+  },
+  {
+    id: 'l4', roomId: 'r5', tenantName: '郑杰', tenantIdCard: '110104199303036789',
+    tenantPhone: '13900006666', startDate: '2025-06-01', endDate: '2026-05-31',
+    deposit: 3400, monthlyRent: 3400, paymentMethod: '半年付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l5', roomId: 'r8', tenantName: '王磊', tenantIdCard: '110105198707077890',
+    tenantPhone: '13900007777', startDate: '2025-09-01', endDate: '2026-08-31',
+    deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l6', roomId: 'r9', tenantName: '冯雪', tenantIdCard: '110106199505058901',
+    tenantPhone: '13900008888', startDate: '2025-07-01', endDate: '2026-06-30',
+    deposit: 3400, monthlyRent: 3400, paymentMethod: '季付', status: 'active',
+    coTenants: [{ id: 'ct3', name: '陈晨', idCard: '110106199606069012', phone: '13900009999', isPrimary: false }],
+    renewalRecords: [],
+  },
+  {
+    id: 'l7', roomId: 'r10', tenantName: '黄鹏', tenantIdCard: '110107199104041123',
+    tenantPhone: '13900010000', startDate: '2025-05-01', endDate: '2026-04-30',
+    deposit: 3200, monthlyRent: 3200, paymentMethod: '月付', status: 'expiring',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l8', roomId: 'r11', tenantName: '许静', tenantIdCard: '110108199208082234',
+    tenantPhone: '13900011111', startDate: '2025-08-01', endDate: '2026-07-31',
+    deposit: 3600, monthlyRent: 3600, paymentMethod: '季付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l9', roomId: 'r13', tenantName: '何涛', tenantIdCard: '110109199309093345',
+    tenantPhone: '13900012222', startDate: '2025-02-01', endDate: '2026-01-31',
+    deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l10', roomId: 'r14', tenantName: '罗琳', tenantIdCard: '110110199407074456',
+    tenantPhone: '13900013333', startDate: '2025-10-01', endDate: '2026-09-30',
+    deposit: 3200, monthlyRent: 3200, paymentMethod: '半年付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l11', roomId: 'r15', tenantName: '谢飞', tenantIdCard: '110111199506065567',
+    tenantPhone: '13900014444', startDate: '2025-11-01', endDate: '2026-10-31',
+    deposit: 3800, monthlyRent: 3800, paymentMethod: '月付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l12', roomId: 'r17', tenantName: '杨洋', tenantIdCard: '110112199203036678',
+    tenantPhone: '13900015555', startDate: '2025-06-01', endDate: '2026-05-31',
+    deposit: 3800, monthlyRent: 3800, paymentMethod: '季付', status: 'expiring',
+    coTenants: [],
+    renewalRecords: [],
+  },
+  {
+    id: 'l13', roomId: 'r18', tenantName: '朱婷', tenantIdCard: '110113199108087789',
+    tenantPhone: '13900016666', startDate: '2025-12-01', endDate: '2026-11-30',
+    deposit: 3400, monthlyRent: 3400, paymentMethod: '月付', status: 'active',
+    coTenants: [],
+    renewalRecords: [],
+  },
+]
+
+export const mockBills: Bill[] = [
+  { id: 'bl1', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-03', paymentMethod: '微信', remark: '' },
+  { id: 'bl2', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '' },
+  { id: 'bl3', roomId: 'r1', leaseId: 'l1', type: 'water', amount: 45, paidAmount: 45, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-08', paymentMethod: '支付宝', remark: '' },
+  { id: 'bl4', roomId: 'r1', leaseId: 'l1', type: 'electricity', amount: 128, paidAmount: 128, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-09', paymentMethod: '支付宝', remark: '' },
+  { id: 'bl5', roomId: 'r3', leaseId: 'l2', type: 'rent', amount: 3200, paidAmount: 1600, reducedAmount: 0, status: 'partial', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-06', paymentMethod: '银行转账', remark: '剩余1600元待缴' },
+  { id: 'bl6', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '' },
+  { id: 'bl7', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '' },
+  { id: 'bl8', roomId: 'r4', leaseId: 'l3', type: 'property', amount: 200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '' },
+  { id: 'bl9', roomId: 'r5', leaseId: 'l4', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '微信', remark: '' },
+  { id: 'bl10', roomId: 'r8', leaseId: 'l5', type: 'rent', amount: 4200, paidAmount: 4200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '支付宝', remark: '' },
+  { id: 'bl11', roomId: 'r9', leaseId: 'l6', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-03', paymentMethod: '银行转账', remark: '' },
+  { id: 'bl12', roomId: 'r13', leaseId: 'l9', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 500, status: 'reduced', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '疫情减免500元' },
+  { id: 'bl13', roomId: 'r13', leaseId: 'l9', type: 'water', amount: 68, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '' },
+  { id: 'bl14', roomId: 'r15', leaseId: 'l11', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-04', paymentMethod: '微信', remark: '' },
+  { id: 'bl15', roomId: 'r17', leaseId: 'l12', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '支付宝', remark: '' },
+  { id: 'bl16', roomId: 'r18', leaseId: 'l13', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '微信', remark: '' },
+  { id: 'bl17', roomId: 'r14', leaseId: 'l10', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '银行转账', remark: '' },
+]
+
+export const mockWorkOrders: WorkOrder[] = [
+  {
+    id: 'wo1', roomId: 'r1', category: '水电', description: '厨房水龙头漏水', urgency: 'medium',
+    status: 'assigned', assignedStaffId: 's3', createdAt: '2026-06-10', completedAt: null,
+    estimatedMinutes: 60, actualMinutes: null, photos: [], materials: '', reviewRating: null, reviewNote: '',
+  },
+  {
+    id: 'wo2', roomId: 'r4', category: '门窗', description: '卧室窗户无法关严', urgency: 'high',
+    status: 'pending', assignedStaffId: null, createdAt: '2026-06-11', completedAt: null,
+    estimatedMinutes: 90, actualMinutes: null, photos: [], materials: '', reviewRating: null, reviewNote: '',
+  },
+  {
+    id: 'wo3', roomId: 'r9', category: '电器', description: '空调不制冷', urgency: 'urgent',
+    status: 'assigned', assignedStaffId: 's4', createdAt: '2026-06-11', completedAt: null,
+    estimatedMinutes: 120, actualMinutes: null, photos: [], materials: '', reviewRating: null, reviewNote: '',
+  },
+  {
+    id: 'wo4', roomId: 'r5', category: '墙面', description: '客厅墙面开裂', urgency: 'low',
+    status: 'completed', assignedStaffId: 's3', createdAt: '2026-06-08', completedAt: '2026-06-09',
+    estimatedMinutes: 180, actualMinutes: 200, photos: [], materials: '腻子粉2袋、乳胶漆1桶', reviewRating: null, reviewNote: '',
+  },
+  {
+    id: 'wo5', roomId: 'r11', category: '水电', description: '卫生间马桶堵塞', urgency: 'high',
+    status: 'reviewed', assignedStaffId: 's3', createdAt: '2026-06-05', completedAt: '2026-06-05',
+    estimatedMinutes: 60, actualMinutes: 45, photos: [], materials: '疏通剂1瓶', reviewRating: 5, reviewNote: '师傅态度好，修得很快',
+  },
+  {
+    id: 'wo6', roomId: 'r8', category: '锁具', description: '入户门锁松动', urgency: 'medium',
+    status: 'completed', assignedStaffId: 's4', createdAt: '2026-06-09', completedAt: '2026-06-10',
+    estimatedMinutes: 30, actualMinutes: 25, photos: [], materials: '门锁配件1套', reviewRating: null, reviewNote: '',
+  },
+  {
+    id: 'wo7', roomId: 'r15', category: '电器', description: '洗衣机无法脱水', urgency: 'medium',
+    status: 'pending', assignedStaffId: null, createdAt: '2026-06-12', completedAt: null,
+    estimatedMinutes: 90, actualMinutes: null, photos: [], materials: '', reviewRating: null, reviewNote: '',
+  },
+]
