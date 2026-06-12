@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/store'
 import { RoomStatusBadge, LeaseStatusBadge, BillStatusBadge, WorkOrderStatusBadge } from '@/components/StatusBadge'
-import { Building2, DoorOpen, AlertTriangle, Settings, Home, Search } from 'lucide-react'
+import { Building2, DoorOpen, AlertTriangle, Settings, Home, Search, Wallet, FileText, Wrench, AlertCircle, CheckCircle2, Clock, ArrowUpRight, XCircle } from 'lucide-react'
 import { ROOM_STATUS_LABELS, BILL_TYPE_LABELS, WORK_ORDER_URGENCY_LABELS } from '@/types'
-import type { RoomStatus } from '@/types'
+import type { RoomStatus, Lease } from '@/types'
 import { cn } from '@/lib/utils'
 import Modal from '@/components/Modal'
 
@@ -15,6 +16,7 @@ const STAT_CARDS = [
 ] as const
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { rooms, buildings, filteredRooms, getLeaseByRoomId, getLeasesByRoomId, getBillsByRoomId, getWorkOrdersByRoomId, getBuildingById, getRoomById } = useStore()
   const [buildingId, setBuildingId] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<RoomStatus | ''>('')
@@ -57,6 +59,67 @@ export default function Dashboard() {
 
   const sortedBills = [...bills].sort((a, b) => b.periodStart.localeCompare(a.periodStart))
   const sortedWorkOrders = [...workOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+  const operationProfile = useMemo(() => {
+    if (!selectedRoomId) return null
+
+    const unpaidBills = bills.filter((b) => b.status === 'unpaid' || b.status === 'partial')
+    const pendingWorkOrders = workOrders.filter((w) => w.status === 'pending' || w.status === 'assigned')
+    const activeLease = leases.find((l) => l.status !== 'terminated')
+    const terminatedLeases = leases.filter((l) => l.status === 'terminated' && l.termination)
+    const latestTermination = terminatedLeases.sort((a, b) =>
+      (b.termination!.date).localeCompare(a.termination!.date)
+    )[0] as (Lease & { termination: NonNullable<Lease['termination']> }) | undefined
+
+    const riskTags: { label: string; color: string }[] = []
+
+    if (unpaidBills.length > 0) {
+      riskTags.push({ label: '欠费风险', color: 'bg-red-50 text-red-700 border border-red-200' })
+    }
+    if (pendingWorkOrders.length > 0) {
+      riskTags.push({ label: '维修中', color: 'bg-amber-50 text-amber-700 border border-amber-200' })
+    }
+    if (activeLease?.status === 'expiring') {
+      riskTags.push({ label: '即将到期', color: 'bg-amber-50 text-amber-700 border border-amber-200' })
+    }
+    if (activeLease?.status === 'terminated') {
+      riskTags.push({ label: '已退租', color: 'bg-gray-50 text-gray-700 border border-gray-200' })
+    }
+    if (riskTags.length === 0) {
+      riskTags.push({ label: '状态正常', color: 'bg-green-50 text-green-700 border border-green-200' })
+    }
+
+    const todos: { label: string; icon: typeof Wallet; path: string }[] = []
+
+    if (unpaidBills.length > 0) {
+      todos.push({
+        label: `${unpaidBills.length} 条待缴账单`,
+        icon: Wallet,
+        path: '/finance',
+      })
+    }
+    const pendingOnly = workOrders.filter((w) => w.status === 'pending')
+    if (pendingOnly.length > 0) {
+      todos.push({
+        label: `${pendingOnly.length} 条待分派工单`,
+        icon: Wrench,
+        path: '/maintenance',
+      })
+    }
+    if (activeLease?.status === 'expiring') {
+      todos.push({
+        label: '1 份租约即将到期',
+        icon: FileText,
+        path: '/leases',
+      })
+    }
+
+    return {
+      riskTags,
+      todos,
+      latestTermination,
+    }
+  }, [selectedRoomId, bills, workOrders, leases])
 
   return (
     <div className="space-y-6">
@@ -180,7 +243,7 @@ export default function Dashboard() {
         title="房间详情"
         width="max-w-3xl"
       >
-        {room && (
+        {room && operationProfile && (
           <div className="space-y-6">
             <div className="page-card rounded-xl border p-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -207,6 +270,93 @@ export default function Dashboard() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">状态</p>
                   <RoomStatusBadge status={room.status} />
+                </div>
+              </div>
+            </div>
+
+            <div className="page-card rounded-xl border p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-slate-600" />
+                <h3 className="font-semibold text-slate-800 text-sm">运营档案</h3>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">风险标签</p>
+                  <div className="flex flex-wrap gap-2">
+                    {operationProfile.riskTags.map((tag, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium',
+                          tag.color
+                        )}
+                      >
+                        {tag.label === '状态正常' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                        {tag.label === '欠费风险' && <XCircle className="w-3 h-3 mr-1" />}
+                        {(tag.label === '维修中' || tag.label === '即将到期') && <Clock className="w-3 h-3 mr-1" />}
+                        {tag.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">当前待办</p>
+                  {operationProfile.todos.length === 0 ? (
+                    <p className="text-sm text-slate-500">暂无待办事项</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {operationProfile.todos.map((todo, i) => {
+                        const Icon = todo.icon
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => navigate(todo.path)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                            {todo.label}
+                            <ArrowUpRight className="w-3 h-3 text-slate-400" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">最近一次退租结算</p>
+                  {operationProfile.latestTermination ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">退租日期</p>
+                          <p className="font-medium text-slate-700">{operationProfile.latestTermination.termination.date}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">租户</p>
+                          <p className="font-medium text-slate-700">{operationProfile.latestTermination.tenantName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">退还押金</p>
+                          <p className="font-medium text-green-600">{operationProfile.latestTermination.termination.refundAmount.toLocaleString()} 元</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">扣款</p>
+                          <p className="font-medium text-red-600">{operationProfile.latestTermination.termination.deductions.toLocaleString()} 元</p>
+                        </div>
+                      </div>
+                      {operationProfile.latestTermination.termination.remark && (
+                        <div className="pt-1 border-t border-slate-200">
+                          <p className="text-xs text-muted-foreground">结算备注</p>
+                          <p className="text-sm text-slate-700">{operationProfile.latestTermination.termination.remark}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">暂无退租记录</p>
+                  )}
                 </div>
               </div>
             </div>

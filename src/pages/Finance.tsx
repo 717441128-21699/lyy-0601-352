@@ -34,8 +34,11 @@ export default function Finance() {
   const [showPayModal, setShowPayModal] = useState(false)
   const [showReduceModal, setShowReduceModal] = useState(false)
   const [showDunningModal, setShowDunningModal] = useState(false)
+  const [showBatchDunningModal, setShowBatchDunningModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [form, setForm] = useState({ roomId: '', type: 'rent' as BillType, amount: '', periodStart: '', periodEnd: '', dueDate: '' })
   const [payMethod, setPayMethod] = useState('wechat')
@@ -43,6 +46,8 @@ export default function Finance() {
   const [reduceRemark, setReduceRemark] = useState('')
   const [dunningMethod, setDunningMethod] = useState(DUNNING_METHODS[0])
   const [dunningRemark, setDunningRemark] = useState('')
+  const [batchDunningMethod, setBatchDunningMethod] = useState(DUNNING_METHODS[0])
+  const [batchDunningRemark, setBatchDunningRemark] = useState('')
 
   const filtered = filteredBills({ type: typeFilter === 'all' ? undefined : typeFilter, status: statusFilter === 'all' ? undefined : statusFilter })
 
@@ -52,6 +57,29 @@ export default function Finance() {
   const totalReduced = filtered.reduce((s, b) => s + b.reducedAmount, 0)
 
   const selectedBill = selectedBillId ? bills.find(b => b.id === selectedBillId) || null : null
+
+  const selectedBills = bills.filter(b => selectedIds.includes(b.id))
+  const selectedTotalUnpaid = selectedBills.reduce((s, b) => s + (b.amount - b.paidAmount - b.reducedAmount), 0)
+
+  const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.includes(b.id))
+  const someSelected = filtered.some(b => selectedIds.includes(b.id)) && !allSelected
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !filtered.some(b => b.id === id)))
+    } else {
+      const filteredIds = filtered.map(b => b.id)
+      setSelectedIds(prev => [...new Set([...prev, ...filteredIds])])
+    }
+  }
+
+  const toggleSelectOne = (billId: string) => {
+    setSelectedIds(prev =>
+      prev.includes(billId)
+        ? prev.filter(id => id !== billId)
+        : [...prev, billId]
+    )
+  }
 
   const handleAddBill = () => {
     const billId = Date.now().toString()
@@ -118,6 +146,29 @@ export default function Finance() {
     setDunningRemark('')
   }
 
+  const handleBatchDunningSubmit = () => {
+    selectedIds.forEach((billId, index) => {
+      const record: DunningRecord = {
+        id: Date.now().toString() + index,
+        billId,
+        method: batchDunningMethod,
+        createdAt: new Date().toISOString().slice(0, 10),
+        remark: batchDunningRemark,
+      }
+      addDunningRecord(billId, record)
+    })
+    setShowBatchDunningModal(false)
+    setSelectedIds([])
+    setBatchDunningMethod(DUNNING_METHODS[0])
+    setBatchDunningRemark('')
+  }
+
+  const openBatchDunningModal = () => {
+    setBatchDunningMethod(DUNNING_METHODS[0])
+    setBatchDunningRemark('')
+    setShowBatchDunningModal(true)
+  }
+
   const openPayModal = (bill: Bill) => { setSelectedBillId(bill.id); setShowPayModal(true); setPayMethod('wechat') }
   const openReduceModal = (bill: Bill) => { setSelectedBillId(bill.id); setShowReduceModal(true); setReduceAmount(''); setReduceRemark('') }
   const openDunningModal = (bill: Bill) => { setSelectedBillId(bill.id); setShowDunningModal(true); setDunningMethod(DUNNING_METHODS[0]); setDunningRemark('') }
@@ -139,18 +190,35 @@ export default function Finance() {
         </button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 text-gray-400" />
-          <select className="select-field" value={typeFilter} onChange={e => setTypeFilter(e.target.value as BillTypeFilter)}>
-            <option value="all">全部类型</option>
-            {Object.entries(BILL_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-gray-400" />
+            <select className="select-field" value={typeFilter} onChange={e => setTypeFilter(e.target.value as BillTypeFilter)}>
+              <option value="all">全部类型</option>
+              {Object.entries(BILL_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <select className="select-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value as BillStatusFilter)}>
+            <option value="all">全部状态</option>
+            {Object.entries(BILL_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
-        <select className="select-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value as BillStatusFilter)}>
-          <option value="all">全部状态</option>
-          {Object.entries(BILL_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+          <span className={cn("text-sm", selectedIds.length > 0 ? "text-gray-900 font-medium" : "text-gray-400")}>
+            已选 {selectedIds.length} 张
+          </span>
+          <button
+            className={cn(
+              "btn-primary text-sm",
+              selectedIds.length === 0 && "opacity-50 cursor-not-allowed"
+            )}
+            disabled={selectedIds.length === 0}
+            onClick={openBatchDunningModal}
+          >
+            批量催缴
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -176,6 +244,15 @@ export default function Finance() {
         <table className="w-full">
           <thead>
             <tr>
+              <th className="table-header w-10">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  checked={allSelected}
+                  ref={el => { if (el) el.indeterminate = someSelected }}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th className="table-header">房间</th>
               <th className="table-header">类型</th>
               <th className="table-header">账单周期</th>
@@ -190,6 +267,14 @@ export default function Finance() {
           <tbody>
             {filtered.map(bill => (
               <tr key={bill.id} className="table-row">
+                <td className="table-cell">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={selectedIds.includes(bill.id)}
+                    onChange={() => toggleSelectOne(bill.id)}
+                  />
+                </td>
                 <td className="table-cell">{getRoomLabel(bill.roomId)}</td>
                 <td className="table-cell">{BILL_TYPE_LABELS[bill.type]}</td>
                 <td className="table-cell">{bill.periodStart} ~ {bill.periodEnd}</td>
@@ -322,6 +407,32 @@ export default function Finance() {
             <button className="btn-primary w-full" onClick={handleDunningSubmit}>确认提交</button>
           </div>
         )}
+      </Modal>
+
+      <Modal open={showBatchDunningModal} onClose={() => setShowBatchDunningModal(false)} title="批量催缴">
+        <div className="space-y-4">
+          <div className="page-card space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">已选账单数量</span>
+              <span className="text-sm font-medium">{selectedIds.length} 张</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">合计待缴金额</span>
+              <span className="text-sm font-medium text-red-600">¥{selectedTotalUnpaid.toFixed(2)}</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">催缴方式</label>
+            <select className="select-field w-full" value={batchDunningMethod} onChange={e => setBatchDunningMethod(e.target.value)}>
+              {DUNNING_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+            <textarea className="input-field w-full min-h-[100px] resize-none" value={batchDunningRemark} onChange={e => setBatchDunningRemark(e.target.value)} placeholder="请输入催缴备注..." />
+          </div>
+          <button className="btn-primary w-full" onClick={handleBatchDunningSubmit}>确认批量催缴</button>
+        </div>
       </Modal>
 
       <Modal open={showDetailModal} onClose={() => setShowDetailModal(false)} title="账单详情" width="max-w-xl">
