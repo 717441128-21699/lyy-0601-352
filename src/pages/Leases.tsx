@@ -51,7 +51,7 @@ function getProgress(start: string, end: string) {
 }
 
 export default function Leases() {
-  const { filteredLeases, addLease, rooms, buildings, getRoomById, getBuildingById, hasActiveLease, addCoTenant, addRenewalRecord, leases } = useStore()
+  const { filteredLeases, addLease, rooms, buildings, getRoomById, getBuildingById, hasActiveLease, addCoTenant, addRenewalRecord, leases, terminateLease } = useStore()
 
   const [statusFilter, setStatusFilter] = useState<LeaseStatus | 'all'>('all')
   const [search, setSearch] = useState('')
@@ -59,9 +59,11 @@ export default function Leases() {
   const [detailLeaseId, setDetailLeaseId] = useState<string | null>(null)
   const [showCoTenantModal, setShowCoTenantModal] = useState(false)
   const [showRenewalModal, setShowRenewalModal] = useState(false)
+  const [showTerminateModal, setShowTerminateModal] = useState(false)
   const [form, setForm] = useState(initialForm)
   const [coTenantForm, setCoTenantForm] = useState(initialCoTenantForm)
   const [renewalForm, setRenewalForm] = useState(initialRenewalForm)
+  const [terminateForm, setTerminateForm] = useState({ date: '', remark: '', refundAmount: '', deductions: '' })
 
   const filteredLeasesList = filteredLeases({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -84,6 +86,10 @@ export default function Leases() {
     setRenewalForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function handleTerminateFormChange(key: string, value: string) {
+    setTerminateForm((prev) => ({ ...prev, [key]: value }))
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const lease: Lease = {
@@ -100,6 +106,7 @@ export default function Leases() {
       status: 'active',
       coTenants: [],
       renewalRecords: [],
+      termination: null,
     }
     const success = addLease(lease)
     if (!success) {
@@ -139,6 +146,19 @@ export default function Leases() {
     addRenewalRecord(detailLease.id, record)
     setRenewalForm(initialRenewalForm)
     setShowRenewalModal(false)
+  }
+
+  function handleTerminateSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!detailLease) return
+    terminateLease(detailLease.id, {
+      date: terminateForm.date,
+      remark: terminateForm.remark,
+      refundAmount: Number(terminateForm.refundAmount),
+      deductions: Number(terminateForm.deductions),
+    })
+    setTerminateForm({ date: '', remark: '', refundAmount: '', deductions: '' })
+    setShowTerminateModal(false)
   }
 
   return (
@@ -407,6 +427,18 @@ export default function Leases() {
                   <div className="text-sm text-slate-400">暂无续租记录</div>
                 )}
               </div>
+              {detailLease.status !== 'terminated' && (
+                <button
+                  type="button"
+                  className="btn-danger w-full mt-4 justify-center"
+                  onClick={() => {
+                    setTerminateForm({ date: new Date().toISOString().slice(0, 10), remark: '', refundAmount: String(detailLease.deposit), deductions: '0' })
+                    setShowTerminateModal(true)
+                  }}
+                >
+                  办理退租
+                </button>
+              )}
             </div>
           )
         })()}
@@ -456,6 +488,31 @@ export default function Leases() {
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setShowRenewalModal(false)}>取消</button>
             <button type="submit" className="btn-primary">确认续租</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={showTerminateModal} onClose={() => setShowTerminateModal(false)} title="办理退租" width="max-w-md">
+        <form onSubmit={handleTerminateSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">退租日期</label>
+            <input type="date" className="input-field" required value={terminateForm.date} onChange={(e) => handleTerminateFormChange('date', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">退还押金 (元)</label>
+            <input type="number" className="input-field" required value={terminateForm.refundAmount} onChange={(e) => handleTerminateFormChange('refundAmount', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">扣款金额 (元)</label>
+            <input type="number" className="input-field" required value={terminateForm.deductions} onChange={(e) => handleTerminateFormChange('deductions', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">结算备注</label>
+            <textarea className="input-field" rows={3} value={terminateForm.remark} onChange={(e) => handleTerminateFormChange('remark', e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn-secondary" onClick={() => setShowTerminateModal(false)}>取消</button>
+            <button type="submit" className="btn-danger">确认退租</button>
           </div>
         </form>
       </Modal>

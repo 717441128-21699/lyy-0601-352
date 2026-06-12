@@ -6,9 +6,9 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Clock, AlertCircle, CheckCircle, Home, Wrench,
-  Wallet, FileWarning,
+  Wallet, FileWarning, Download,
 } from 'lucide-react'
-import { BILL_TYPE_LABELS } from '@/types'
+import { BILL_TYPE_LABELS, WORK_ORDER_URGENCY_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 
 function getMonthLabels() {
@@ -90,18 +90,16 @@ export default function Reports() {
   }, [filteredWorkOrders, selectedMonth, roomId, buildingId])
 
   const expiringLeases = useMemo(() => {
-    let leases = filteredLeases({
+    const leases = filteredLeases({
       roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
       status: 'expiring',
     })
-    if (buildingId && !roomId) {
-      leases = leases.filter((l) => {
-        const room = getRoomById(l.roomId)
-        return room?.buildingId === buildingId
-      })
-    }
-    return leases
-  }, [filteredLeases, roomId, buildingId, getRoomById])
+    return leases.filter((lease) => {
+      if (selectedMonth && !lease.endDate.startsWith(selectedMonth)) return false
+      return true
+    })
+  }, [filteredLeases, roomId, buildingId, selectedMonth])
 
   const unpaidBills = useMemo(() => {
     const bills = filteredBills({
@@ -122,6 +120,96 @@ export default function Reports() {
   }, [filteredWorkOrders, selectedMonth, roomId, buildingId])
 
   const pendingTodoCount = expiringLeases.length + unpaidBills.length + pendingWorkOrders.length
+
+  function escapeCSV(value: string | number): string {
+    const str = String(value)
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
+  function handleExportCSV() {
+    const rows: string[] = []
+    const BOM = '\uFEFF'
+
+    rows.push('当前筛选条件')
+    const buildingName = buildingId ? getBuildingById(buildingId)?.name || '未知' : '全部'
+    const roomName = roomId ? (() => {
+      const room = getRoomById(roomId)
+      const b = room ? getBuildingById(room.buildingId) : undefined
+      return `${b?.name || '未知'} ${room?.roomNumber || '未知'}`
+    })() : '全部'
+    const monthLabel = months.find(m => m.value === selectedMonth)?.label || selectedMonth
+    rows.push(`楼栋,${escapeCSV(buildingName)}`)
+    rows.push(`房间,${escapeCSV(roomName)}`)
+    rows.push(`月份,${escapeCSV(monthLabel)}`)
+    rows.push('')
+
+    rows.push('核心指标')
+    rows.push(`入住率,${occupancyRate}%`)
+    rows.push(`收缴率,${collectionRate}%`)
+    rows.push(`平均维修耗时,${avgMaintenanceHours}h`)
+    rows.push(`待办事项数,${pendingTodoCount}`)
+    rows.push('')
+
+    rows.push('即将到期租约')
+    rows.push('房间,楼栋,租户,到期日期,月租')
+    expiringLeases.forEach((lease) => {
+      const room = getRoomById(lease.roomId)
+      const building = room ? getBuildingById(room.buildingId) : undefined
+      rows.push([
+        escapeCSV(room?.roomNumber || ''),
+        escapeCSV(building?.name || ''),
+        escapeCSV(lease.tenantName),
+        escapeCSV(lease.endDate),
+        escapeCSV(lease.monthlyRent),
+      ].join(','))
+    })
+    rows.push('')
+
+    rows.push('欠费账单')
+    rows.push('房间,楼栋,类型,金额,待缴,到期日')
+    unpaidBills.forEach((bill) => {
+      const room = getRoomById(bill.roomId)
+      const building = room ? getBuildingById(room.buildingId) : undefined
+      rows.push([
+        escapeCSV(room?.roomNumber || ''),
+        escapeCSV(building?.name || ''),
+        escapeCSV(BILL_TYPE_LABELS[bill.type]),
+        escapeCSV(bill.amount),
+        escapeCSV(bill.amount - bill.paidAmount),
+        escapeCSV(bill.dueDate),
+      ].join(','))
+    })
+    rows.push('')
+
+    rows.push('待分派工单')
+    rows.push('房间,楼栋,分类,描述,紧急程度,创建日期')
+    pendingWorkOrders.forEach((wo) => {
+      const room = getRoomById(wo.roomId)
+      const building = room ? getBuildingById(room.buildingId) : undefined
+      rows.push([
+        escapeCSV(room?.roomNumber || ''),
+        escapeCSV(building?.name || ''),
+        escapeCSV(wo.category),
+        escapeCSV(wo.description),
+        escapeCSV(WORK_ORDER_URGENCY_LABELS[wo.urgency]),
+        escapeCSV(wo.createdAt),
+      ].join(','))
+    })
+
+    const csvContent = BOM + rows.join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `报表导出_${selectedMonth}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const occupancyTrend = useMemo(() => {
     return months.map((m) => {
@@ -247,6 +335,10 @@ export default function Reports() {
               <option key={r.id} value={r.id}>{r.label}</option>
             ))}
           </select>
+          <button className="btn-secondary" onClick={handleExportCSV}>
+            <Download className="w-4 h-4" />
+            导出CSV
+          </button>
         </div>
       </div>
 

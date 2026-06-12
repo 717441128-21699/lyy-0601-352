@@ -3,7 +3,7 @@ import { useStore } from '@/store'
 import { BillStatusBadge } from '@/components/StatusBadge'
 import Modal from '@/components/Modal'
 import { Plus, Search, Wallet, TrendingDown, CheckCircle, AlertCircle } from 'lucide-react'
-import { BILL_TYPE_LABELS, BILL_STATUS_LABELS } from '@/types'
+import { BILL_TYPE_LABELS, BILL_STATUS_LABELS, BILL_ACTION_TYPE_LABELS } from '@/types'
 import type { Bill, BillType, BillStatus, DunningRecord } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +11,18 @@ type BillTypeFilter = BillType | 'all'
 type BillStatusFilter = BillStatus | 'all'
 
 const DUNNING_METHODS = ['微信通知', '短信', '电话', '上门拜访', '律师函']
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  wechat: '微信',
+  alipay: '支付宝',
+  bank: '银行转账',
+  cash: '现金',
+}
+const ACTION_CIRCLE_COLORS: Record<string, string> = {
+  created: 'bg-blue-500',
+  paid: 'bg-green-500',
+  reduced: 'bg-purple-500',
+  dunning: 'bg-amber-500',
+}
 
 export default function Finance() {
   const { bills, rooms, buildings, filteredBills, addBill, markBillPaid, reduceBill, getRoomById, getBuildingById, addDunningRecord } = useStore()
@@ -42,8 +54,9 @@ export default function Finance() {
   const selectedBill = selectedBillId ? bills.find(b => b.id === selectedBillId) || null : null
 
   const handleAddBill = () => {
+    const billId = Date.now().toString()
     addBill({
-      id: Date.now().toString(),
+      id: billId,
       roomId: form.roomId,
       leaseId: '',
       type: form.type,
@@ -58,6 +71,16 @@ export default function Finance() {
       paymentMethod: null,
       remark: '',
       dunningRecords: [],
+      actionLogs: [{
+        id: 'log-create-' + Date.now(),
+        billId,
+        type: 'created',
+        amount: Number(form.amount),
+        method: '手工录入',
+        createdAt: new Date().toISOString().slice(0, 10),
+        operator: '王建国',
+        remark: '手工生成账单',
+      }],
     })
     setShowAddModal(false)
     setForm({ roomId: '', type: 'rent', amount: '', periodStart: '', periodEnd: '', dueDate: '' })
@@ -371,6 +394,40 @@ export default function Finance() {
               ) : (
                 <div className="page-card text-center py-6 text-gray-400 text-sm">
                   暂无催缴记录
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">操作记录时间线</h4>
+              {selectedBill.actionLogs && selectedBill.actionLogs.length > 0 ? (
+                <div className="page-card">
+                  {[...selectedBill.actionLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((log, index, arr) => (
+                    <div key={log.id} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={cn("w-3 h-3 rounded-full flex-shrink-0", ACTION_CIRCLE_COLORS[log.type])} />
+                        {index < arr.length - 1 && <div className="w-px flex-1 border-l border-gray-200 my-1" />}
+                      </div>
+                      <div className="flex-1 pb-5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-gray-500">{log.createdAt}</span>
+                          <span className="text-sm font-medium text-gray-900">{BILL_ACTION_TYPE_LABELS[log.type]}</span>
+                          <span className="text-sm text-gray-500">操作人: {log.operator}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <span className="text-sm text-gray-600">{PAYMENT_METHOD_LABELS[log.method] || log.method}</span>
+                          {log.amount > 0 && <span className="text-sm font-medium text-gray-900">¥{log.amount.toFixed(2)}</span>}
+                        </div>
+                        {log.remark && (
+                          <div className="text-sm text-gray-500 mt-1">{log.remark}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="page-card text-center py-6 text-gray-400 text-sm">
+                  暂无操作记录
                 </div>
               )}
             </div>

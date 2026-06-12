@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Building, Room, Lease, Bill, WorkOrder, Staff, BillType, BillStatus, LeaseStatus, RoomStatus, WorkOrderStatus, WorkOrderUrgency, DunningRecord, CoTenant, RenewalRecord } from '@/types'
+import type { Building, Room, Lease, Bill, WorkOrder, Staff, BillType, BillStatus, LeaseStatus, RoomStatus, WorkOrderStatus, WorkOrderUrgency, DunningRecord, CoTenant, RenewalRecord, BillActionLog, LeaseTermination } from '@/types'
 import { mockBuildings, mockRooms, mockLeases, mockBills, mockWorkOrders, mockStaff } from '@/data/mock'
 
-const mockBillsWithDunning = mockBills.map((b) => ({
+const mockBillsWithLogs = mockBills.map((b) => ({
   ...b,
   dunningRecords: b.status === 'unpaid' && b.type === 'rent' ? [
     {
@@ -14,6 +14,33 @@ const mockBillsWithDunning = mockBills.map((b) => ({
       remark: '已发送微信催缴通知',
     },
   ] : [],
+  actionLogs: [
+    {
+      id: 'log-create-' + b.id,
+      billId: b.id,
+      type: 'created' as const,
+      amount: b.amount,
+      method: '系统生成',
+      createdAt: b.periodStart,
+      operator: '王建国',
+      remark: '系统自动生成账单',
+    },
+    ...(b.status === 'paid' && b.paidAt ? [{
+      id: 'log-paid-' + b.id,
+      billId: b.id,
+      type: 'paid' as const,
+      amount: b.amount - b.reducedAmount,
+      method: b.paymentMethod || '微信',
+      createdAt: b.paidAt,
+      operator: '陈财务',
+      remark: '已全额收款',
+    }] : []),
+  ],
+}))
+
+const mockLeasesWithTermination = mockLeases.map((l) => ({
+  ...l,
+  termination: null,
 }))
 
 interface AppState {
@@ -29,12 +56,14 @@ interface AppState {
   addCoTenant: (leaseId: string, coTenant: CoTenant) => void
   removeCoTenant: (leaseId: string, coTenantId: string) => void
   addRenewalRecord: (leaseId: string, record: RenewalRecord) => void
+  terminateLease: (leaseId: string, termination: LeaseTermination) => void
 
   addBill: (bill: Bill) => void
   updateBill: (id: string, data: Partial<Bill>) => void
   markBillPaid: (id: string, paymentMethod: string) => void
   reduceBill: (id: string, reducedAmount: number, remark: string) => void
   addDunningRecord: (billId: string, record: DunningRecord) => void
+  addBillActionLog: (billId: string, log: Omit<BillActionLog, 'id' | 'billId'>) => void
 
   addWorkOrder: (order: WorkOrder) => void
   updateWorkOrder: (id: string, data: Partial<WorkOrder>) => void
@@ -48,6 +77,9 @@ interface AppState {
   getBuildingById: (id: string) => Building | undefined
   getLeaseByRoomId: (roomId: string) => Lease | undefined
   getStaffById: (id: string) => Staff | undefined
+  getLeasesByRoomId: (roomId: string) => Lease[]
+  getBillsByRoomId: (roomId: string) => Bill[]
+  getWorkOrdersByRoomId: (roomId: string) => WorkOrder[]
 
   filteredRooms: (filters: { buildingId?: string; status?: RoomStatus; roomId?: string }) => Room[]
   filteredLeases: (filters: { status?: LeaseStatus; search?: string; roomId?: string; buildingId?: string }) => Lease[]
@@ -62,8 +94,8 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       buildings: mockBuildings,
       rooms: mockRooms,
-      leases: mockLeases,
-      bills: mockBillsWithDunning,
+      leases: mockLeasesWithTermination,
+      bills: mockBillsWithLogs,
       workOrders: mockWorkOrders,
       staff: mockStaff,
 
@@ -103,33 +135,122 @@ export const useStore = create<AppState>()(
             : l
         ),
       })),
+      terminateLease: (leaseId, termination) => set((s) => {
+        const lease = s.leases.find((l) => l.id === leaseId)
+        return {
+          leases: s.leases.map((l) =>
+            l.id === leaseId
+              ? { ...l, status: 'terminated' as LeaseStatus, termination }
+              : l
+          ),
+          rooms: lease
+            ? s.rooms.map((r) =>
+                r.id === lease.roomId ? { ...r, status: 'vacant' as RoomStatus } : r
+              )
+            : s.rooms,
+        }
+      }),
 
-      addBill: (bill) => set((s) => ({ bills: [...s.bills, bill] })),
+      addBill: (bill) => {
+        set((s) => ({ bills: [...s.bills, bill] }))
+      },
       updateBill: (id, data) => set((s) => ({
         bills: s.bills.map((b) => (b.id === id ? { ...b, ...data } : b)),
       })),
-      markBillPaid: (id, paymentMethod) => set((s) => ({
+      markBillPaid: (id, paymentMethod) => {
+        const today = new Date().toISOString().slice(0, 10)
+        set((s) => ({
+          bills: s.bills.map((b) =>
+            b.id === id
+              ? {
+                  ...b,
+                  status: 'paid' as BillStatus,
+                  paidAmount: b.amount - b.reducedAmount,
+                  paidAt: today,
+                  paymentMethod,
+                  actionLogs: [
+                    ...b.actionLogs,
+                    {
+                      id: 'log-paid-' + Date.now(),
+                      billId: b.id,
+                      type: 'paid',
+                      amount: b.amount - b.reducedAmount,
+                      method: paymentMethod,
+                      createdAt: today,
+                      operator: '王建国',
+                      remark: '已收款',
+                    },
+                  ],
+                }
+              : b
+          ),
+        }))
+      },
+      reduceBill: (id, reducedAmount, remark) => {
+        const today = new Date().toISOString().slice(0, 10)
+        set((s) => ({
+          bills: s.bills.map((b) =>
+            b.id === id
+              ? {
+                  ...b,
+                  reducedAmount: b.reducedAmount + reducedAmount,
+                  status: (b.amount - b.paidAmount - b.reducedAmount - reducedAmount <= 0 ? 'reduced' : b.status) as BillStatus,
+                  remark: remark || b.remark,
+                  actionLogs: [
+                    ...b.actionLogs,
+                    {
+                      id: 'log-reduced-' + Date.now(),
+                      billId: b.id,
+                      type: 'reduced',
+                      amount: reducedAmount,
+                      method: '手工减免',
+                      createdAt: today,
+                      operator: '王建国',
+                      remark,
+                    },
+                  ],
+                }
+              : b
+          ),
+        }))
+      },
+      addDunningRecord: (billId, record) => {
+        const today = new Date().toISOString().slice(0, 10)
+        set((s) => ({
+          bills: s.bills.map((b) =>
+            b.id === billId
+              ? {
+                  ...b,
+                  dunningRecords: [...b.dunningRecords, record],
+                  actionLogs: [
+                    ...b.actionLogs,
+                    {
+                      id: 'log-dunning-' + Date.now(),
+                      billId: b.id,
+                      type: 'dunning',
+                      amount: b.amount - b.paidAmount - b.reducedAmount,
+                      method: record.method,
+                      createdAt: today,
+                      operator: '王建国',
+                      remark: record.remark,
+                    },
+                  ],
+                }
+              : b
+          ),
+        }))
+      },
+      addBillActionLog: (billId, log) => set((s) => ({
         bills: s.bills.map((b) =>
-          b.id === id
-            ? { ...b, status: 'paid' as BillStatus, paidAmount: b.amount - b.reducedAmount, paidAt: new Date().toISOString().slice(0, 10), paymentMethod }
-            : b
-        ),
-      })),
-      reduceBill: (id, reducedAmount, remark) => set((s) => ({
-        bills: s.bills.map((b) =>
-          b.id === id
+          b.id === billId
             ? {
                 ...b,
-                reducedAmount: b.reducedAmount + reducedAmount,
-                status: (b.amount - b.paidAmount - b.reducedAmount - reducedAmount <= 0 ? 'reduced' : b.status) as BillStatus,
-                remark: remark || b.remark,
+                actionLogs: [
+                  ...b.actionLogs,
+                  { ...log, id: 'log-' + Date.now(), billId },
+                ],
               }
             : b
-        ),
-      })),
-      addDunningRecord: (billId, record) => set((s) => ({
-        bills: s.bills.map((b) =>
-          b.id === billId ? { ...b, dunningRecords: [...b.dunningRecords, record] } : b
         ),
       })),
 
@@ -169,6 +290,9 @@ export const useStore = create<AppState>()(
       getBuildingById: (id) => get().buildings.find((b) => b.id === id),
       getLeaseByRoomId: (roomId) => get().leases.find((l) => l.roomId === roomId && l.status !== 'terminated'),
       getStaffById: (id) => get().staff.find((s) => s.id === id),
+      getLeasesByRoomId: (roomId) => get().leases.filter((l) => l.roomId === roomId),
+      getBillsByRoomId: (roomId) => get().bills.filter((b) => b.roomId === roomId).sort((a, b) => b.periodStart.localeCompare(a.periodStart)),
+      getWorkOrdersByRoomId: (roomId) => get().workOrders.filter((w) => w.roomId === roomId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
 
       filteredRooms: (filters) => {
         const { rooms } = get()

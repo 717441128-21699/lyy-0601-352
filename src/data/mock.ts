@@ -42,6 +42,7 @@ export const mockLeases: Lease[] = [
     deposit: 3200, monthlyRent: 3200, paymentMethod: '月付', status: 'active',
     coTenants: [{ id: 'ct1', name: '钱丽', idCard: '110101199202022345', phone: '13900002222', isPrimary: false }],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l2', roomId: 'r3', tenantName: '孙伟', tenantIdCard: '110102198805053456',
@@ -49,6 +50,7 @@ export const mockLeases: Lease[] = [
     deposit: 3200, monthlyRent: 3200, paymentMethod: '季付', status: 'expiring',
     coTenants: [],
     renewalRecords: [{ id: 'rr1', leaseId: 'l2', oldEndDate: '2025-12-31', newEndDate: '2026-03-31', newRent: 3200, createdAt: '2025-12-15' }],
+    termination: null,
   },
   {
     id: 'l3', roomId: 'r4', tenantName: '周芳', tenantIdCard: '110103199107074567',
@@ -56,6 +58,7 @@ export const mockLeases: Lease[] = [
     deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
     coTenants: [{ id: 'ct2', name: '吴强', idCard: '110103198909095678', phone: '13900005555', isPrimary: true }],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l4', roomId: 'r5', tenantName: '郑杰', tenantIdCard: '110104199303036789',
@@ -63,6 +66,7 @@ export const mockLeases: Lease[] = [
     deposit: 3400, monthlyRent: 3400, paymentMethod: '半年付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l5', roomId: 'r8', tenantName: '王磊', tenantIdCard: '110105198707077890',
@@ -70,6 +74,7 @@ export const mockLeases: Lease[] = [
     deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l6', roomId: 'r9', tenantName: '冯雪', tenantIdCard: '110106199505058901',
@@ -77,6 +82,7 @@ export const mockLeases: Lease[] = [
     deposit: 3400, monthlyRent: 3400, paymentMethod: '季付', status: 'active',
     coTenants: [{ id: 'ct3', name: '陈晨', idCard: '110106199606069012', phone: '13900009999', isPrimary: false }],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l7', roomId: 'r10', tenantName: '黄鹏', tenantIdCard: '110107199104041123',
@@ -84,6 +90,7 @@ export const mockLeases: Lease[] = [
     deposit: 3200, monthlyRent: 3200, paymentMethod: '月付', status: 'expiring',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l8', roomId: 'r11', tenantName: '许静', tenantIdCard: '110108199208082234',
@@ -91,6 +98,7 @@ export const mockLeases: Lease[] = [
     deposit: 3600, monthlyRent: 3600, paymentMethod: '季付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l9', roomId: 'r13', tenantName: '何涛', tenantIdCard: '110109199309093345',
@@ -98,6 +106,7 @@ export const mockLeases: Lease[] = [
     deposit: 4200, monthlyRent: 4200, paymentMethod: '月付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l10', roomId: 'r14', tenantName: '罗琳', tenantIdCard: '110110199407074456',
@@ -105,6 +114,7 @@ export const mockLeases: Lease[] = [
     deposit: 3200, monthlyRent: 3200, paymentMethod: '半年付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l11', roomId: 'r15', tenantName: '谢飞', tenantIdCard: '110111199506065567',
@@ -112,6 +122,7 @@ export const mockLeases: Lease[] = [
     deposit: 3800, monthlyRent: 3800, paymentMethod: '月付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l12', roomId: 'r17', tenantName: '杨洋', tenantIdCard: '110112199203036678',
@@ -119,6 +130,7 @@ export const mockLeases: Lease[] = [
     deposit: 3800, monthlyRent: 3800, paymentMethod: '季付', status: 'expiring',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
   {
     id: 'l13', roomId: 'r18', tenantName: '朱婷', tenantIdCard: '110113199108087789',
@@ -126,27 +138,28 @@ export const mockLeases: Lease[] = [
     deposit: 3400, monthlyRent: 3400, paymentMethod: '月付', status: 'active',
     coTenants: [],
     renewalRecords: [],
+    termination: null,
   },
 ]
 
 export const mockBills: Bill[] = [
-  { id: 'bl1', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-03', paymentMethod: '微信', remark: '', dunningRecords: [] },
-  { id: 'bl2', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [] },
-  { id: 'bl3', roomId: 'r1', leaseId: 'l1', type: 'water', amount: 45, paidAmount: 45, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-08', paymentMethod: '支付宝', remark: '', dunningRecords: [] },
-  { id: 'bl4', roomId: 'r1', leaseId: 'l1', type: 'electricity', amount: 128, paidAmount: 128, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-09', paymentMethod: '支付宝', remark: '', dunningRecords: [] },
-  { id: 'bl5', roomId: 'r3', leaseId: 'l2', type: 'rent', amount: 3200, paidAmount: 1600, reducedAmount: 0, status: 'partial', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-06', paymentMethod: '银行转账', remark: '剩余1600元待缴', dunningRecords: [] },
-  { id: 'bl6', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [] },
-  { id: 'bl7', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [] },
-  { id: 'bl8', roomId: 'r4', leaseId: 'l3', type: 'property', amount: 200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [] },
-  { id: 'bl9', roomId: 'r5', leaseId: 'l4', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '微信', remark: '', dunningRecords: [] },
-  { id: 'bl10', roomId: 'r8', leaseId: 'l5', type: 'rent', amount: 4200, paidAmount: 4200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '支付宝', remark: '', dunningRecords: [] },
-  { id: 'bl11', roomId: 'r9', leaseId: 'l6', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-03', paymentMethod: '银行转账', remark: '', dunningRecords: [] },
-  { id: 'bl12', roomId: 'r13', leaseId: 'l9', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 500, status: 'reduced', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '疫情减免500元', dunningRecords: [] },
-  { id: 'bl13', roomId: 'r13', leaseId: 'l9', type: 'water', amount: 68, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [] },
-  { id: 'bl14', roomId: 'r15', leaseId: 'l11', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-04', paymentMethod: '微信', remark: '', dunningRecords: [] },
-  { id: 'bl15', roomId: 'r17', leaseId: 'l12', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '支付宝', remark: '', dunningRecords: [] },
-  { id: 'bl16', roomId: 'r18', leaseId: 'l13', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '微信', remark: '', dunningRecords: [] },
-  { id: 'bl17', roomId: 'r14', leaseId: 'l10', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '银行转账', remark: '', dunningRecords: [] },
+  { id: 'bl1', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-03', paymentMethod: '微信', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl2', roomId: 'r1', leaseId: 'l1', type: 'rent', amount: 3200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl3', roomId: 'r1', leaseId: 'l1', type: 'water', amount: 45, paidAmount: 45, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-08', paymentMethod: '支付宝', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl4', roomId: 'r1', leaseId: 'l1', type: 'electricity', amount: 128, paidAmount: 128, reducedAmount: 0, status: 'paid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: '2026-05-09', paymentMethod: '支付宝', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl5', roomId: 'r3', leaseId: 'l2', type: 'rent', amount: 3200, paidAmount: 1600, reducedAmount: 0, status: 'partial', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: '2026-05-06', paymentMethod: '银行转账', remark: '剩余1600元待缴', dunningRecords: [], actionLogs: [] },
+  { id: 'bl6', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl7', roomId: 'r4', leaseId: 'l3', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl8', roomId: 'r4', leaseId: 'l3', type: 'property', amount: 200, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl9', roomId: 'r5', leaseId: 'l4', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '微信', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl10', roomId: 'r8', leaseId: 'l5', type: 'rent', amount: 4200, paidAmount: 4200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '支付宝', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl11', roomId: 'r9', leaseId: 'l6', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-03', paymentMethod: '银行转账', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl12', roomId: 'r13', leaseId: 'l9', type: 'rent', amount: 4200, paidAmount: 0, reducedAmount: 500, status: 'reduced', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-05', paidAt: null, paymentMethod: null, remark: '疫情减免500元', dunningRecords: [], actionLogs: [] },
+  { id: 'bl13', roomId: 'r13', leaseId: 'l9', type: 'water', amount: 68, paidAmount: 0, reducedAmount: 0, status: 'unpaid', periodStart: '2026-05-01', periodEnd: '2026-05-31', dueDate: '2026-05-10', paidAt: null, paymentMethod: null, remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl14', roomId: 'r15', leaseId: 'l11', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-04', paymentMethod: '微信', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl15', roomId: 'r17', leaseId: 'l12', type: 'rent', amount: 3800, paidAmount: 3800, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '支付宝', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl16', roomId: 'r18', leaseId: 'l13', type: 'rent', amount: 3400, paidAmount: 3400, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-02', paymentMethod: '微信', remark: '', dunningRecords: [], actionLogs: [] },
+  { id: 'bl17', roomId: 'r14', leaseId: 'l10', type: 'rent', amount: 3200, paidAmount: 3200, reducedAmount: 0, status: 'paid', periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-06-05', paidAt: '2026-06-01', paymentMethod: '银行转账', remark: '', dunningRecords: [], actionLogs: [] },
 ]
 
 export const mockWorkOrders: WorkOrder[] = [

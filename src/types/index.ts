@@ -23,22 +23,6 @@ export interface Room {
   monthlyRent: number
 }
 
-export interface Lease {
-  id: string
-  roomId: string
-  tenantName: string
-  tenantIdCard: string
-  tenantPhone: string
-  startDate: string
-  endDate: string
-  deposit: number
-  monthlyRent: number
-  paymentMethod: string
-  status: LeaseStatus
-  coTenants: CoTenant[]
-  renewalRecords: RenewalRecord[]
-}
-
 export interface CoTenant {
   id: string
   name: string
@@ -56,11 +40,46 @@ export interface RenewalRecord {
   createdAt: string
 }
 
+export interface LeaseTermination {
+  date: string
+  remark: string
+  refundAmount: number
+  deductions: number
+}
+
+export interface Lease {
+  id: string
+  roomId: string
+  tenantName: string
+  tenantIdCard: string
+  tenantPhone: string
+  startDate: string
+  endDate: string
+  deposit: number
+  monthlyRent: number
+  paymentMethod: string
+  status: LeaseStatus
+  coTenants: CoTenant[]
+  renewalRecords: RenewalRecord[]
+  termination: LeaseTermination | null
+}
+
 export interface DunningRecord {
   id: string
   billId: string
   method: string
   createdAt: string
+  remark: string
+}
+
+export interface BillActionLog {
+  id: string
+  billId: string
+  type: 'paid' | 'reduced' | 'dunning' | 'created'
+  amount: number
+  method: string
+  createdAt: string
+  operator: string
   remark: string
 }
 
@@ -80,6 +99,7 @@ export interface Bill {
   paymentMethod: string | null
   remark: string
   dunningRecords: DunningRecord[]
+  actionLogs: BillActionLog[]
 }
 
 export interface WorkOrder {
@@ -156,4 +176,11 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   butler: '管家',
   maintenance: '维修师傅',
   finance: '财务',
+}
+
+export const BILL_ACTION_TYPE_LABELS: Record<BillActionLog['type'], string> = {
+  created: '账单生成',
+  paid: '收款',
+  reduced: '减免',
+  dunning: '催缴',
 }
