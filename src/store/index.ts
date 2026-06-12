@@ -1,6 +1,20 @@
 import { create } from 'zustand'
-import type { Building, Room, Lease, Bill, WorkOrder, Staff, BillType, BillStatus, LeaseStatus, RoomStatus, WorkOrderStatus, WorkOrderUrgency } from '@/types'
+import { persist } from 'zustand/middleware'
+import type { Building, Room, Lease, Bill, WorkOrder, Staff, BillType, BillStatus, LeaseStatus, RoomStatus, WorkOrderStatus, WorkOrderUrgency, DunningRecord, CoTenant, RenewalRecord } from '@/types'
 import { mockBuildings, mockRooms, mockLeases, mockBills, mockWorkOrders, mockStaff } from '@/data/mock'
+
+const mockBillsWithDunning = mockBills.map((b) => ({
+  ...b,
+  dunningRecords: b.status === 'unpaid' && b.type === 'rent' ? [
+    {
+      id: 'd' + b.id,
+      billId: b.id,
+      method: '微信通知',
+      createdAt: '2026-06-08',
+      remark: '已发送微信催缴通知',
+    },
+  ] : [],
+}))
 
 interface AppState {
   buildings: Building[]
@@ -10,15 +24,17 @@ interface AppState {
   workOrders: WorkOrder[]
   staff: Staff[]
 
-  addLease: (lease: Lease) => void
+  addLease: (lease: Lease) => boolean
   updateLease: (id: string, data: Partial<Lease>) => void
-  addCoTenant: (leaseId: string, coTenant: { id: string; name: string; idCard: string; phone: string; isPrimary: boolean }) => void
+  addCoTenant: (leaseId: string, coTenant: CoTenant) => void
   removeCoTenant: (leaseId: string, coTenantId: string) => void
+  addRenewalRecord: (leaseId: string, record: RenewalRecord) => void
 
   addBill: (bill: Bill) => void
   updateBill: (id: string, data: Partial<Bill>) => void
   markBillPaid: (id: string, paymentMethod: string) => void
   reduceBill: (id: string, reducedAmount: number, remark: string) => void
+  addDunningRecord: (billId: string, record: DunningRecord) => void
 
   addWorkOrder: (order: WorkOrder) => void
   updateWorkOrder: (id: string, data: Partial<WorkOrder>) => void
@@ -33,136 +49,202 @@ interface AppState {
   getLeaseByRoomId: (roomId: string) => Lease | undefined
   getStaffById: (id: string) => Staff | undefined
 
-  filteredRooms: (filters: { buildingId?: string; status?: RoomStatus }) => Room[]
-  filteredLeases: (filters: { status?: LeaseStatus; search?: string }) => Lease[]
-  filteredBills: (filters: { type?: BillType; status?: BillStatus }) => Bill[]
-  filteredWorkOrders: (filters: { status?: WorkOrderStatus; search?: string }) => WorkOrder[]
+  filteredRooms: (filters: { buildingId?: string; status?: RoomStatus; roomId?: string }) => Room[]
+  filteredLeases: (filters: { status?: LeaseStatus; search?: string; roomId?: string; buildingId?: string }) => Lease[]
+  filteredBills: (filters: { type?: BillType; status?: BillStatus; month?: string; roomId?: string; buildingId?: string }) => Bill[]
+  filteredWorkOrders: (filters: { status?: WorkOrderStatus; search?: string; month?: string; roomId?: string; buildingId?: string }) => WorkOrder[]
+
+  hasActiveLease: (roomId: string) => boolean
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  buildings: mockBuildings,
-  rooms: mockRooms,
-  leases: mockLeases,
-  bills: mockBills,
-  workOrders: mockWorkOrders,
-  staff: mockStaff,
+export const useStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      buildings: mockBuildings,
+      rooms: mockRooms,
+      leases: mockLeases,
+      bills: mockBillsWithDunning,
+      workOrders: mockWorkOrders,
+      staff: mockStaff,
 
-  addLease: (lease) => set((s) => ({ leases: [...s.leases, lease] })),
-  updateLease: (id, data) => set((s) => ({
-    leases: s.leases.map((l) => (l.id === id ? { ...l, ...data } : l)),
-  })),
-  addCoTenant: (leaseId, coTenant) => set((s) => ({
-    leases: s.leases.map((l) =>
-      l.id === leaseId ? { ...l, coTenants: [...l.coTenants, coTenant] } : l
-    ),
-  })),
-  removeCoTenant: (leaseId, coTenantId) => set((s) => ({
-    leases: s.leases.map((l) =>
-      l.id === leaseId ? { ...l, coTenants: l.coTenants.filter((c) => c.id !== coTenantId) } : l
-    ),
-  })),
+      hasActiveLease: (roomId) => {
+        return get().leases.some((l) => l.roomId === roomId && l.status !== 'terminated')
+      },
 
-  addBill: (bill) => set((s) => ({ bills: [...s.bills, bill] })),
-  updateBill: (id, data) => set((s) => ({
-    bills: s.bills.map((b) => (b.id === id ? { ...b, ...data } : b)),
-  })),
-  markBillPaid: (id, paymentMethod) => set((s) => ({
-    bills: s.bills.map((b) =>
-      b.id === id
-        ? { ...b, status: 'paid' as BillStatus, paidAmount: b.amount - b.reducedAmount, paidAt: new Date().toISOString().slice(0, 10), paymentMethod }
-        : b
-    ),
-  })),
-  reduceBill: (id, reducedAmount, remark) => set((s) => ({
-    bills: s.bills.map((b) =>
-      b.id === id
-        ? {
-            ...b,
-            reducedAmount,
-            status: (b.amount - b.paidAmount - reducedAmount <= 0 ? 'reduced' : b.status) as BillStatus,
-            remark: remark || b.remark,
+      addLease: (lease) => {
+        if (get().hasActiveLease(lease.roomId)) {
+          return false
+        }
+        set((s) => ({
+          leases: [...s.leases, lease],
+          rooms: s.rooms.map((r) =>
+            r.id === lease.roomId ? { ...r, status: 'occupied' as RoomStatus } : r
+          ),
+        }))
+        return true
+      },
+      updateLease: (id, data) => set((s) => ({
+        leases: s.leases.map((l) => (l.id === id ? { ...l, ...data } : l)),
+      })),
+      addCoTenant: (leaseId, coTenant) => set((s) => ({
+        leases: s.leases.map((l) =>
+          l.id === leaseId ? { ...l, coTenants: [...l.coTenants, coTenant] } : l
+        ),
+      })),
+      removeCoTenant: (leaseId, coTenantId) => set((s) => ({
+        leases: s.leases.map((l) =>
+          l.id === leaseId ? { ...l, coTenants: l.coTenants.filter((c) => c.id !== coTenantId) } : l
+        ),
+      })),
+      addRenewalRecord: (leaseId, record) => set((s) => ({
+        leases: s.leases.map((l) =>
+          l.id === leaseId
+            ? { ...l, endDate: record.newEndDate, monthlyRent: record.newRent, renewalRecords: [...l.renewalRecords, record] }
+            : l
+        ),
+      })),
+
+      addBill: (bill) => set((s) => ({ bills: [...s.bills, bill] })),
+      updateBill: (id, data) => set((s) => ({
+        bills: s.bills.map((b) => (b.id === id ? { ...b, ...data } : b)),
+      })),
+      markBillPaid: (id, paymentMethod) => set((s) => ({
+        bills: s.bills.map((b) =>
+          b.id === id
+            ? { ...b, status: 'paid' as BillStatus, paidAmount: b.amount - b.reducedAmount, paidAt: new Date().toISOString().slice(0, 10), paymentMethod }
+            : b
+        ),
+      })),
+      reduceBill: (id, reducedAmount, remark) => set((s) => ({
+        bills: s.bills.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                reducedAmount: b.reducedAmount + reducedAmount,
+                status: (b.amount - b.paidAmount - b.reducedAmount - reducedAmount <= 0 ? 'reduced' : b.status) as BillStatus,
+                remark: remark || b.remark,
+              }
+            : b
+        ),
+      })),
+      addDunningRecord: (billId, record) => set((s) => ({
+        bills: s.bills.map((b) =>
+          b.id === billId ? { ...b, dunningRecords: [...b.dunningRecords, record] } : b
+        ),
+      })),
+
+      addWorkOrder: (order) => set((s) => ({ workOrders: [...s.workOrders, order] })),
+      updateWorkOrder: (id, data) => set((s) => ({
+        workOrders: s.workOrders.map((w) => (w.id === id ? { ...w, ...data } : w)),
+      })),
+      assignWorkOrder: (id, staffId) => set((s) => ({
+        workOrders: s.workOrders.map((w) =>
+          w.id === id ? { ...w, assignedStaffId: staffId, status: 'assigned' as WorkOrderStatus } : w
+        ),
+      })),
+      completeWorkOrder: (id, actualMinutes, materials) => set((s) => ({
+        workOrders: s.workOrders.map((w) =>
+          w.id === id
+            ? {
+                ...w,
+                status: 'completed' as WorkOrderStatus,
+                completedAt: new Date().toISOString().slice(0, 10),
+                actualMinutes,
+                materials,
+              }
+            : w
+        ),
+      })),
+      reviewWorkOrder: (id, rating, note) => set((s) => ({
+        workOrders: s.workOrders.map((w) =>
+          w.id === id ? { ...w, status: 'reviewed' as WorkOrderStatus, reviewRating: rating, reviewNote: note } : w
+        ),
+      })),
+
+      updateRoomStatus: (id, status) => set((s) => ({
+        rooms: s.rooms.map((r) => (r.id === id ? { ...r, status } : r)),
+      })),
+
+      getRoomById: (id) => get().rooms.find((r) => r.id === id),
+      getBuildingById: (id) => get().buildings.find((b) => b.id === id),
+      getLeaseByRoomId: (roomId) => get().leases.find((l) => l.roomId === roomId && l.status !== 'terminated'),
+      getStaffById: (id) => get().staff.find((s) => s.id === id),
+
+      filteredRooms: (filters) => {
+        const { rooms } = get()
+        return rooms.filter((r) => {
+          if (filters.buildingId && r.buildingId !== filters.buildingId) return false
+          if (filters.status && r.status !== filters.status) return false
+          if (filters.roomId && r.id !== filters.roomId) return false
+          return true
+        })
+      },
+      filteredLeases: (filters) => {
+        const { leases, rooms, buildings } = get()
+        return leases.filter((l) => {
+          if (filters.status && l.status !== filters.status) return false
+          if (filters.roomId && l.roomId !== filters.roomId) return false
+          if (filters.buildingId) {
+            const room = rooms.find((r) => r.id === l.roomId)
+            if (room?.buildingId !== filters.buildingId) return false
           }
-        : b
-    ),
-  })),
-
-  addWorkOrder: (order) => set((s) => ({ workOrders: [...s.workOrders, order] })),
-  updateWorkOrder: (id, data) => set((s) => ({
-    workOrders: s.workOrders.map((w) => (w.id === id ? { ...w, ...data } : w)),
-  })),
-  assignWorkOrder: (id, staffId) => set((s) => ({
-    workOrders: s.workOrders.map((w) =>
-      w.id === id ? { ...w, assignedStaffId: staffId, status: 'assigned' as WorkOrderStatus } : w
-    ),
-  })),
-  completeWorkOrder: (id, actualMinutes, materials) => set((s) => ({
-    workOrders: s.workOrders.map((w) =>
-      w.id === id
-        ? {
-            ...w,
-            status: 'completed' as WorkOrderStatus,
-            completedAt: new Date().toISOString().slice(0, 10),
-            actualMinutes,
-            materials,
+          if (filters.search) {
+            const room = rooms.find((r) => r.id === l.roomId)
+            const building = room ? buildings.find((b) => b.id === room.buildingId) : undefined
+            const searchStr = `${l.tenantName}${l.tenantPhone}${room?.roomNumber || ''}${building?.name || ''}`
+            if (!searchStr.includes(filters.search)) return false
           }
-        : w
-    ),
-  })),
-  reviewWorkOrder: (id, rating, note) => set((s) => ({
-    workOrders: s.workOrders.map((w) =>
-      w.id === id ? { ...w, status: 'reviewed' as WorkOrderStatus, reviewRating: rating, reviewNote: note } : w
-    ),
-  })),
-
-  updateRoomStatus: (id, status) => set((s) => ({
-    rooms: s.rooms.map((r) => (r.id === id ? { ...r, status } : r)),
-  })),
-
-  getRoomById: (id) => get().rooms.find((r) => r.id === id),
-  getBuildingById: (id) => get().buildings.find((b) => b.id === id),
-  getLeaseByRoomId: (roomId) => get().leases.find((l) => l.roomId === roomId && l.status !== 'terminated'),
-  getStaffById: (id) => get().staff.find((s) => s.id === id),
-
-  filteredRooms: (filters) => {
-    const { rooms } = get()
-    return rooms.filter((r) => {
-      if (filters.buildingId && r.buildingId !== filters.buildingId) return false
-      if (filters.status && r.status !== filters.status) return false
-      return true
-    })
-  },
-  filteredLeases: (filters) => {
-    const { leases, rooms, buildings } = get()
-    return leases.filter((l) => {
-      if (filters.status && l.status !== filters.status) return false
-      if (filters.search) {
-        const room = rooms.find((r) => r.id === l.roomId)
-        const building = room ? buildings.find((b) => b.id === room.buildingId) : undefined
-        const searchStr = `${l.tenantName}${l.tenantPhone}${room?.roomNumber || ''}${building?.name || ''}`
-        if (!searchStr.includes(filters.search)) return false
-      }
-      return true
-    })
-  },
-  filteredBills: (filters) => {
-    const { bills } = get()
-    return bills.filter((b) => {
-      if (filters.type && b.type !== filters.type) return false
-      if (filters.status && b.status !== filters.status) return false
-      return true
-    })
-  },
-  filteredWorkOrders: (filters) => {
-    const { workOrders, rooms, buildings } = get()
-    return workOrders.filter((w) => {
-      if (filters.status && w.status !== filters.status) return false
-      if (filters.search) {
-        const room = rooms.find((r) => r.id === w.roomId)
-        const building = room ? buildings.find((b) => b.id === room.buildingId) : undefined
-        const searchStr = `${w.description}${w.category}${room?.roomNumber || ''}${building?.name || ''}`
-        if (!searchStr.includes(filters.search)) return false
-      }
-      return true
-    })
-  },
-}))
+          return true
+        })
+      },
+      filteredBills: (filters) => {
+        const { bills, rooms } = get()
+        return bills.filter((b) => {
+          if (filters.type && b.type !== filters.type) return false
+          if (filters.status && b.status !== filters.status) return false
+          if (filters.roomId && b.roomId !== filters.roomId) return false
+          if (filters.buildingId) {
+            const room = rooms.find((r) => r.id === b.roomId)
+            if (room?.buildingId !== filters.buildingId) return false
+          }
+          if (filters.month) {
+            const periodStart = b.periodStart
+            if (!periodStart.startsWith(filters.month)) return false
+          }
+          return true
+        })
+      },
+      filteredWorkOrders: (filters) => {
+        const { workOrders, rooms, buildings } = get()
+        return workOrders.filter((w) => {
+          if (filters.status && w.status !== filters.status) return false
+          if (filters.roomId && w.roomId !== filters.roomId) return false
+          if (filters.buildingId) {
+            const room = rooms.find((r) => r.id === w.roomId)
+            if (room?.buildingId !== filters.buildingId) return false
+          }
+          if (filters.month) {
+            const createdAt = w.createdAt
+            if (!createdAt.startsWith(filters.month)) return false
+          }
+          if (filters.search) {
+            const room = rooms.find((r) => r.id === w.roomId)
+            const building = room ? buildings.find((b) => b.id === room.buildingId) : undefined
+            const searchStr = `${w.description}${w.category}${room?.roomNumber || ''}${building?.name || ''}`
+            if (!searchStr.includes(filters.search)) return false
+          }
+          return true
+        })
+      },
+    }),
+    {
+      name: 'apartment-manager-storage',
+      partialize: (state) => ({
+        rooms: state.rooms,
+        leases: state.leases,
+        bills: state.bills,
+        workOrders: state.workOrders,
+      }),
+    }
+  )
+)

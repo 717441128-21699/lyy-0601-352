@@ -27,84 +27,158 @@ function getMonthLabels() {
 export default function Reports() {
   const months = useMemo(() => getMonthLabels(), [])
   const [buildingId, setBuildingId] = useState('')
+  const [roomId, setRoomId] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(months[months.length - 1].value)
 
   const {
-    rooms, buildings, leases, bills, workOrders,
+    rooms, buildings,
     getRoomById, getBuildingById,
+    filteredRooms, filteredBills, filteredWorkOrders, filteredLeases,
   } = useStore()
 
-  const filteredRooms = useMemo(() => {
-    if (!buildingId) return rooms
-    return rooms.filter((r) => r.buildingId === buildingId)
-  }, [rooms, buildingId])
+  const roomsForSelector = useMemo(() => {
+    return rooms.map((r) => {
+      const building = getBuildingById(r.buildingId)
+      return {
+        ...r,
+        label: `${building?.name || '未知楼栋'} - ${r.roomNumber}`,
+      }
+    }).sort((a, b) => a.label.localeCompare(b.label))
+  }, [rooms, getBuildingById])
+
+  const currentFilteredRooms = useMemo(() => {
+    let result = filteredRooms({ roomId: roomId || undefined })
+    if (buildingId && !roomId) {
+      result = result.filter((r) => r.buildingId === buildingId)
+    }
+    return result
+  }, [filteredRooms, roomId, buildingId])
 
   const occupancyRate = useMemo(() => {
-    const total = filteredRooms.length
+    const total = currentFilteredRooms.length
     if (total === 0) return 0
-    const occupied = filteredRooms.filter(
+    const occupied = currentFilteredRooms.filter(
       (r) => r.status === 'occupied' || r.status === 'expiring' || r.status === 'arrears',
     ).length
     return Math.round((occupied / total) * 100)
-  }, [filteredRooms])
+  }, [currentFilteredRooms])
 
   const collectionRate = useMemo(() => {
-    const filteredBills = buildingId
-      ? bills.filter((b) => {
-          const room = getRoomById(b.roomId)
-          return room?.buildingId === buildingId
-        })
-      : bills
-    const total = filteredBills.reduce((s, b) => s + b.amount, 0)
+    const bills = filteredBills({
+      month: selectedMonth,
+      roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
+    })
+    const total = bills.reduce((s, b) => s + b.amount, 0)
     if (total === 0) return 0
-    const paid = filteredBills.reduce((s, b) => s + b.paidAmount, 0)
+    const paid = bills.reduce((s, b) => s + b.paidAmount, 0)
     return Math.round((paid / total) * 100)
-  }, [bills, buildingId, getRoomById])
+  }, [filteredBills, selectedMonth, roomId, buildingId])
 
   const avgMaintenanceHours = useMemo(() => {
+    const workOrders = filteredWorkOrders({
+      month: selectedMonth,
+      roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
+    })
     const completed = workOrders.filter(
       (w) => w.status === 'completed' || w.status === 'reviewed',
     )
     if (completed.length === 0) return 0
     const totalMinutes = completed.reduce((s, w) => s + (w.actualMinutes || 0), 0)
     return Math.round((totalMinutes / completed.length / 60) * 10) / 10
-  }, [workOrders])
+  }, [filteredWorkOrders, selectedMonth, roomId, buildingId])
 
-  const expiringLeases = useMemo(
-    () => leases.filter((l) => l.status === 'expiring'),
-    [leases],
-  )
+  const expiringLeases = useMemo(() => {
+    let leases = filteredLeases({
+      roomId: roomId || undefined,
+      status: 'expiring',
+    })
+    if (buildingId && !roomId) {
+      leases = leases.filter((l) => {
+        const room = getRoomById(l.roomId)
+        return room?.buildingId === buildingId
+      })
+    }
+    return leases
+  }, [filteredLeases, roomId, buildingId, getRoomById])
 
-  const unpaidBills = useMemo(
-    () => bills.filter((b) => b.status === 'unpaid' || b.status === 'partial'),
-    [bills],
-  )
+  const unpaidBills = useMemo(() => {
+    const bills = filteredBills({
+      month: selectedMonth,
+      roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
+    })
+    return bills.filter((b) => b.status === 'unpaid' || b.status === 'partial')
+  }, [filteredBills, selectedMonth, roomId, buildingId])
 
-  const pendingWorkOrders = useMemo(
-    () => workOrders.filter((w) => w.status === 'pending'),
-    [workOrders],
-  )
+  const pendingWorkOrders = useMemo(() => {
+    const workOrders = filteredWorkOrders({
+      month: selectedMonth,
+      roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
+    })
+    return workOrders.filter((w) => w.status === 'pending')
+  }, [filteredWorkOrders, selectedMonth, roomId, buildingId])
 
   const pendingTodoCount = expiringLeases.length + unpaidBills.length + pendingWorkOrders.length
 
   const occupancyTrend = useMemo(() => {
-    const baseRate = occupancyRate
-    return months.map((m, i) => ({
-      month: m.label.slice(5),
-      rate: Math.min(100, Math.max(0, baseRate - 15 + i * 3 + Math.round(Math.sin(i) * 4))),
-    }))
-  }, [occupancyRate, months])
+    return months.map((m) => {
+      let monthRooms = filteredRooms({ roomId: roomId || undefined })
+      if (buildingId && !roomId) {
+        monthRooms = monthRooms.filter((r) => r.buildingId === buildingId)
+      }
+
+      const monthBills = filteredBills({
+        month: m.value,
+        roomId: roomId || undefined,
+        buildingId: buildingId || undefined,
+      })
+      const monthWorkOrders = filteredWorkOrders({
+        month: m.value,
+        roomId: roomId || undefined,
+        buildingId: buildingId || undefined,
+      })
+
+      const total = monthRooms.length
+      if (total === 0) {
+        return {
+          month: m.label.slice(5),
+          rate: 0,
+        }
+      }
+
+      let occupiedCount = 0
+
+      monthRooms.forEach((room) => {
+        const roomBills = monthBills.filter((b) => b.roomId === room.id)
+        const roomWorkOrders = monthWorkOrders.filter((w) => w.roomId === room.id)
+
+        if (room.status === 'occupied' || room.status === 'expiring' || room.status === 'arrears') {
+          occupiedCount++
+        } else if (roomBills.length > 0 || roomWorkOrders.length > 0) {
+          occupiedCount++
+        }
+      })
+
+      const rate = Math.round((occupiedCount / total) * 100)
+      return {
+        month: m.label.slice(5),
+        rate: Math.min(100, Math.max(0, rate)),
+      }
+    })
+  }, [months, filteredRooms, filteredBills, filteredWorkOrders, roomId, buildingId])
 
   const collectionByType = useMemo(() => {
-    const filteredBills = buildingId
-      ? bills.filter((b) => {
-          const room = getRoomById(b.roomId)
-          return room?.buildingId === buildingId
-        })
-      : bills
+    const bills = filteredBills({
+      month: selectedMonth,
+      roomId: roomId || undefined,
+      buildingId: buildingId || undefined,
+    })
     const types = ['rent', 'water', 'electricity', 'property', 'other'] as const
     return types.map((type) => {
-      const typeBills = filteredBills.filter((b) => b.type === type)
+      const typeBills = bills.filter((b) => b.type === type)
       const total = typeBills.reduce((s, b) => s + b.amount, 0)
       const paid = typeBills.reduce((s, b) => s + b.paidAmount, 0)
       return {
@@ -112,17 +186,29 @@ export default function Reports() {
         rate: total > 0 ? Math.round((paid / total) * 100) : 0,
       }
     })
-  }, [bills, buildingId, getRoomById])
+  }, [filteredBills, selectedMonth, roomId, buildingId])
 
   const maintenanceByMonth = useMemo(() => {
-    return months.map((m, i) => {
-      const hours = Math.max(0, avgMaintenanceHours - 1 + i * 0.4 + Math.round(Math.cos(i) * 0.5))
+    return months.map((m) => {
+      const workOrders = filteredWorkOrders({
+        month: m.value,
+        roomId: roomId || undefined,
+        buildingId: buildingId || undefined,
+      })
+      const completed = workOrders.filter(
+        (w) => w.status === 'completed' || w.status === 'reviewed',
+      )
+      let hours = 0
+      if (completed.length > 0) {
+        const totalMinutes = completed.reduce((s, w) => s + (w.actualMinutes || 0), 0)
+        hours = Math.round((totalMinutes / completed.length / 60) * 10) / 10
+      }
       return {
         month: m.label.slice(5),
-        hours: Math.round(hours * 10) / 10,
+        hours,
       }
     })
-  }, [avgMaintenanceHours, months])
+  }, [months, filteredWorkOrders, roomId, buildingId])
 
   return (
     <div className="space-y-6">
@@ -132,7 +218,10 @@ export default function Reports() {
           <select
             className="select-field w-44"
             value={buildingId}
-            onChange={(e) => setBuildingId(e.target.value)}
+            onChange={(e) => {
+              setBuildingId(e.target.value)
+              setRoomId('')
+            }}
           >
             <option value="">全部楼栋</option>
             {buildings.map((b) => (
@@ -146,6 +235,16 @@ export default function Reports() {
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            className="select-field w-48"
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+          >
+            <option value="">全部房间</option>
+            {roomsForSelector.map((r) => (
+              <option key={r.id} value={r.id}>{r.label}</option>
             ))}
           </select>
         </div>

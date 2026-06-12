@@ -4,7 +4,7 @@ import { LeaseStatusBadge } from '@/components/StatusBadge'
 import Modal from '@/components/Modal'
 import { Plus, Search, Users, Clock, FileText, User, Phone, CreditCard } from 'lucide-react'
 import { LEASE_STATUS_LABELS } from '@/types'
-import type { LeaseStatus, Lease } from '@/types'
+import type { LeaseStatus, Lease, CoTenant, RenewalRecord } from '@/types'
 import { cn } from '@/lib/utils'
 
 const STATUS_TABS: { label: string; value: LeaseStatus | 'all' }[] = [
@@ -29,6 +29,18 @@ const initialForm = {
   paymentMethod: '月付',
 }
 
+const initialCoTenantForm = {
+  name: '',
+  idCard: '',
+  phone: '',
+  isPrimary: false,
+}
+
+const initialRenewalForm = {
+  newEndDate: '',
+  newRent: '',
+}
+
 function getProgress(start: string, end: string) {
   const s = new Date(start).getTime()
   const e = new Date(end).getTime()
@@ -39,23 +51,37 @@ function getProgress(start: string, end: string) {
 }
 
 export default function Leases() {
-  const { filteredLeases, addLease, rooms, buildings, getRoomById, getBuildingById } = useStore()
+  const { filteredLeases, addLease, rooms, buildings, getRoomById, getBuildingById, hasActiveLease, addCoTenant, addRenewalRecord, leases } = useStore()
 
   const [statusFilter, setStatusFilter] = useState<LeaseStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [showNewModal, setShowNewModal] = useState(false)
-  const [detailLease, setDetailLease] = useState<Lease | null>(null)
+  const [detailLeaseId, setDetailLeaseId] = useState<string | null>(null)
+  const [showCoTenantModal, setShowCoTenantModal] = useState(false)
+  const [showRenewalModal, setShowRenewalModal] = useState(false)
   const [form, setForm] = useState(initialForm)
+  const [coTenantForm, setCoTenantForm] = useState(initialCoTenantForm)
+  const [renewalForm, setRenewalForm] = useState(initialRenewalForm)
 
-  const leases = filteredLeases({
+  const filteredLeasesList = filteredLeases({
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: search || undefined,
   })
 
-  const availableRooms = rooms.filter((r) => r.status === 'vacant')
+  const detailLease = detailLeaseId ? leases.find(l => l.id === detailLeaseId) : null
+
+  const availableRooms = rooms.filter((r) => r.status === 'vacant' && !hasActiveLease(r.id))
 
   function handleFormChange(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleCoTenantFormChange(key: string, value: string | boolean) {
+    setCoTenantForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleRenewalFormChange(key: string, value: string) {
+    setRenewalForm((prev) => ({ ...prev, [key]: value }))
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -75,9 +101,44 @@ export default function Leases() {
       coTenants: [],
       renewalRecords: [],
     }
-    addLease(lease)
+    const success = addLease(lease)
+    if (!success) {
+      alert('该房间已有生效租约，无法重复创建')
+      return
+    }
     setForm(initialForm)
     setShowNewModal(false)
+  }
+
+  function handleCoTenantSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!detailLease) return
+    const coTenant: CoTenant = {
+      id: Date.now().toString(),
+      name: coTenantForm.name,
+      idCard: coTenantForm.idCard,
+      phone: coTenantForm.phone,
+      isPrimary: coTenantForm.isPrimary,
+    }
+    addCoTenant(detailLease.id, coTenant)
+    setCoTenantForm(initialCoTenantForm)
+    setShowCoTenantModal(false)
+  }
+
+  function handleRenewalSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!detailLease) return
+    const record: RenewalRecord = {
+      id: Date.now().toString(),
+      leaseId: detailLease.id,
+      oldEndDate: detailLease.endDate,
+      newEndDate: renewalForm.newEndDate,
+      newRent: Number(renewalForm.newRent),
+      createdAt: new Date().toISOString().slice(0, 10),
+    }
+    addRenewalRecord(detailLease.id, record)
+    setRenewalForm(initialRenewalForm)
+    setShowRenewalModal(false)
   }
 
   return (
@@ -121,7 +182,7 @@ export default function Leases() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {leases.map((lease) => {
+        {filteredLeasesList.map((lease) => {
           const room = getRoomById(lease.roomId)
           const building = room ? getBuildingById(room.buildingId) : undefined
           const progress = getProgress(lease.startDate, lease.endDate)
@@ -130,7 +191,7 @@ export default function Leases() {
             <div
               key={lease.id}
               className="page-card cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setDetailLease(lease)}
+              onClick={() => setDetailLeaseId(lease.id)}
             >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm shrink-0">
@@ -182,7 +243,7 @@ export default function Leases() {
         })}
       </div>
 
-      {leases.length === 0 && (
+      {filteredLeasesList.length === 0 && (
         <div className="page-card text-center py-12 text-slate-400">
           暂无匹配的租约记录
         </div>
@@ -243,7 +304,7 @@ export default function Leases() {
         </form>
       </Modal>
 
-      <Modal open={!!detailLease} onClose={() => setDetailLease(null)} title="租约详情" width="max-w-xl">
+      <Modal open={!!detailLease} onClose={() => setDetailLeaseId(null)} title="租约详情" width="max-w-xl">
         {detailLease && (() => {
           const room = getRoomById(detailLease.roomId)
           const building = room ? getBuildingById(room.buildingId) : undefined
@@ -296,11 +357,18 @@ export default function Leases() {
                 />
               </div>
 
-              {detailLease.coTenants.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
-                    <Users className="w-4 h-4" />同住人
-                  </h4>
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Users className="w-4 h-4" />同住人
+                  <button
+                    type="button"
+                    className="ml-auto text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                    onClick={() => setShowCoTenantModal(true)}
+                  >
+                    新增同住人
+                  </button>
+                </h4>
+                {detailLease.coTenants.length > 0 ? (
                   <div className="space-y-2">
                     {detailLease.coTenants.map((ct) => (
                       <div key={ct.id} className="flex items-center gap-3 text-sm bg-slate-50 rounded-lg px-3 py-2">
@@ -310,14 +378,23 @@ export default function Leases() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-sm text-slate-400">暂无同住人</div>
+                )}
+              </div>
 
-              {detailLease.renewalRecords.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4" />续租记录
-                  </h4>
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4" />续租记录
+                  <button
+                    type="button"
+                    className="ml-auto text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                    onClick={() => setShowRenewalModal(true)}
+                  >
+                    续租
+                  </button>
+                </h4>
+                {detailLease.renewalRecords.length > 0 ? (
                   <div className="space-y-2">
                     {detailLease.renewalRecords.map((rr) => (
                       <div key={rr.id} className="text-sm bg-slate-50 rounded-lg px-3 py-2">
@@ -326,11 +403,61 @@ export default function Leases() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-sm text-slate-400">暂无续租记录</div>
+                )}
+              </div>
             </div>
           )
         })()}
+      </Modal>
+
+      <Modal open={showCoTenantModal} onClose={() => setShowCoTenantModal(false)} title="新增同住人" width="max-w-md">
+        <form onSubmit={handleCoTenantSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">姓名</label>
+            <input className="input-field" required value={coTenantForm.name} onChange={(e) => handleCoTenantFormChange('name', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">身份证号</label>
+            <input className="input-field" required value={coTenantForm.idCard} onChange={(e) => handleCoTenantFormChange('idCard', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">手机号</label>
+            <input className="input-field" required value={coTenantForm.phone} onChange={(e) => handleCoTenantFormChange('phone', e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isPrimary"
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              checked={coTenantForm.isPrimary}
+              onChange={(e) => handleCoTenantFormChange('isPrimary', e.target.checked)}
+            />
+            <label htmlFor="isPrimary" className="text-sm font-medium text-slate-700">主租户</label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn-secondary" onClick={() => setShowCoTenantModal(false)}>取消</button>
+            <button type="submit" className="btn-primary">确认添加</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={showRenewalModal} onClose={() => setShowRenewalModal(false)} title="续租" width="max-w-md">
+        <form onSubmit={handleRenewalSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">新结束日期</label>
+            <input type="date" className="input-field" required value={renewalForm.newEndDate} onChange={(e) => handleRenewalFormChange('newEndDate', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">新月租 (元)</label>
+            <input type="number" className="input-field" required value={renewalForm.newRent} onChange={(e) => handleRenewalFormChange('newRent', e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn-secondary" onClick={() => setShowRenewalModal(false)}>取消</button>
+            <button type="submit" className="btn-primary">确认续租</button>
+          </div>
+        </form>
       </Modal>
     </div>
   )

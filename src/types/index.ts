@@ -56,6 +56,14 @@ export interface RenewalRecord {
   createdAt: string
 }
 
+export interface DunningRecord {
+  id: string
+  billId: string
+  method: string
+  createdAt: string
+  remark: string
+}
+
 export interface Bill {
   id: string
   roomId: string
@@ -71,6 +79,7 @@ export interface Bill {
   paidAt: string | null
   paymentMethod: string | null
   remark: string
+  dunningRecords: DunningRecord[]
 }
 
 export interface WorkOrder {
